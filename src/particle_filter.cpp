@@ -12,11 +12,42 @@
 
 #include "particle_filter.h"
 
+using namespace std;
+
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// TODO: Set the number of particles. Initialize all particles to first position (based on estimates of 
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
+  
+  num_particles = 50;
+  
+  double std_x = std[0];
+  double std_y = std[1];
+  double std_theta = std[2];
+  
+  normal_distribution<double> dist_x(x, std_x);
+  normal_distribution<double> dist_y(y, std_y);
+  normal_distribution<double> dist_theta(theta, std_theta);
+  
+  default_random_engine gen;
+  
+  for (int i = 0; i < num_particles; i++) {
+    double sample_x = dist_x(gen);
+    double sample_y = dist_y(gen);
+    double sample_theta = dist_theta(gen);
+    
+    Particle p;
+    p.id = i;
+    p.x = sample_x;
+    p.y = sample_y;
+    p.theta = sample_theta;
+    p.weight = 1;
+    
+    particles.push_back(p);
+  }
+  
+  is_initialized = true;
 
 }
 
@@ -25,6 +56,38 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
+  
+  double v_yaw = velocity/yaw_rate;
+  double std_x = std_pos[0];
+  double std_y = std_pos[1];
+  double std_theta = std_pos[2];
+  
+  default_random_engine gen;
+  
+  for (int i = 0; i < num_particles; i++) {
+    Particle p = particles[i];
+    double x = p.x;
+    double y = p.y;
+    double theta = p.theta;
+    
+    double new_x = x + v_yaw * (sin(theta + yaw_rate * delta_t) - sin(theta));
+    double new_y = y + v_yaw * (cos(theta) - cos(theta + yaw_rate * delta_t));
+    double new_theta = theta + yaw_rate * delta_t;
+    
+    normal_distribution<double> dist_x(new_x, std_x);
+    normal_distribution<double> dist_y(new_y, std_y);
+    normal_distribution<double> dist_theta(new_theta, std_theta);
+    
+    double sample_x = dist_x(gen);
+    double sample_y = dist_y(gen);
+    double sample_theta = dist_theta(gen);
+   
+    p.x = sample_x;
+    p.y = sample_y;
+    p.theta = sample_theta;
+    
+    particles[i] = p;
+  }
 
 }
 
