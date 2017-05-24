@@ -10,6 +10,8 @@
 #include <iostream>
 #include <numeric>
 #include <limits>
+#include <map>
+#include <assert.h>
 
 #include "particle_filter.h"
 #include "helper_functions.h"
@@ -44,7 +46,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     p.x = sample_x;
     p.y = sample_y;
     p.theta = sample_theta;
-    p.weight = 1;
+    p.weight = 1.;
     
     particles.push_back(p);
   }
@@ -140,6 +142,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    * 5. Multiply each of the probabilities together - this is the new weight
    */
   
+  weights.clear();
+  
   for (Particle& p : particles) {
     
     double weight = 1;
@@ -163,25 +167,35 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       //Compute multi-variate Gaussian distribution
       double sig_x = std_landmark[0];
       double sig_y = std_landmark[1];
+      double mu_x = nearest_landmark.x_f;
+      double mu_y = nearest_landmark.y_f;
       double dividend = 2. * M_PI * sig_x * sig_y;
-      double x_term = pow(obs.x - nearest_landmark.x_f, 2) / (2. * pow(sig_x, 2));
-      double y_term = pow(obs.y - nearest_landmark.y_f, 2) / (2. * pow(sig_y, 2));
+      double x_term = (map_x - mu_x) * (map_x - mu_x) / (2. * sig_x * sig_x);
+      double y_term = (map_y - mu_y) * (map_y - mu_y) / (2. * sig_y * sig_y);
       
       double prob = 1/dividend * exp(-(x_term + y_term));
       weight *= prob;
-      
     }
     
     p.weight = weight;
+    weights.push_back(weight);
   }
   
 }
 
 void ParticleFilter::resample() {
-	// TODO: Resample particles with replacement with probability proportional to their weight. 
-	// NOTE: You may find std::discrete_distribution helpful here.
-	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 
+  assert(weights.size() == particles.size());
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::discrete_distribution<> d(weights.begin(), weights.end());
+  vector<Particle> new_particles;
+  
+  for(int n = 0; n< num_particles; ++n) {
+    new_particles.push_back(particles[d(gen)]);    
+  }
+
+  particles = new_particles;
 }
 
 void ParticleFilter::write(std::string filename) {
